@@ -1,30 +1,27 @@
 package com.github.vspiewak
 
-import java.time.format.DateTimeFormatter
-
-import org.apache.hadoop.hbase.HBaseConfiguration
-import org.apache.hadoop.hbase.client.Put
-import org.apache.hadoop.hbase.client.Result
-import org.apache.hadoop.hbase.io.ImmutableBytesWritable
-import org.apache.hadoop.hbase.mapred.TableOutputFormat
-import org.apache.hadoop.hbase.mapreduce.TableInputFormat
-import org.apache.hadoop.hbase.util.Bytes
-import org.apache.hadoop.mapred.JobConf
+import java.text.SimpleDateFormat
 
 import com.cybozu.labs.langdetect.DetectorFactory
 import com.github.vspiewak.util.LogUtils
 import com.github.vspiewak.util.SentimentAnalysisUtils._
+import org.apache.hadoop.hbase.HBaseConfiguration
+import org.apache.hadoop.hbase.client.Put
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable
+import org.apache.hadoop.hbase.mapred.TableOutputFormat
+import org.apache.hadoop.hbase.util.Bytes
+import org.apache.hadoop.mapred.JobConf
 import org.apache.spark.SparkConf
+import org.apache.spark.SparkContext._
 import org.apache.spark.streaming.twitter._
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.elasticsearch.spark._
-import org.apache.spark.SparkContext
-import org.apache.spark.SparkContext._
-import org.apache.spark.rdd.PairRDDFunctions
 
 import scala.util.Try
 
 object TwitterSentimentAnalysis {
+
+  private val dateFormatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mmZ")
 
    def main(args: Array[String]) {
 
@@ -70,7 +67,7 @@ object TwitterSentimentAnalysis {
        rdd.map(t => {
          Map(
            "user"-> t.getUser.getScreenName,
-           "created_at" -> t.getCreatedAt.toInstant.toString,
+           "created_at" -> dateFormatter.format(t.getCreatedAt),
            "location" -> Option(t.getGeoLocation).map(geo => { s"${geo.getLatitude},${geo.getLongitude}" }),
            "text" -> t.getText,
            "hashtags" -> t.getHashtagEntities.map(_.getText),
@@ -83,12 +80,12 @@ object TwitterSentimentAnalysis {
 
     // Write to MapR-DB
      tweets.foreachRDD{(rdd, time) =>
-       rdd.map(t => {
-         var key = t.getUser.getScreenName + "-" + t.getCreatedAt.toInstant.toString
-         var p = new Put(Bytes.toBytes(key))
+       rdd.map(t => {dateFormatter.format(t.getCreatedAt)
+         val key = t.getUser.getScreenName + "-" + dateFormatter.format(t.getCreatedAt)
+         val p = new Put(Bytes.toBytes(key))
 
          p.add(cfNameBytes, Bytes.toBytes("user"), Bytes.toBytes(t.getUser.getScreenName))
-         p.add(cfNameBytes, Bytes.toBytes("created_at"), Bytes.toBytes(t.getCreatedAt.toInstant.toString))
+         p.add(cfNameBytes, Bytes.toBytes("created_at"), Bytes.toBytes(dateFormatter.format(t.getCreatedAt)))
          p.add(cfNameBytes, Bytes.toBytes("location"), Bytes.toBytes(Option(t.getGeoLocation).map(geo => { s"${geo.getLatitude},${geo.getLongitude}" }).toString))
          p.add(cfNameBytes, Bytes.toBytes("text"), Bytes.toBytes(t.getText))
          p.add(cfNameBytes, Bytes.toBytes("hashtags"), Bytes.toBytes(t.getHashtagEntities.map(_.getText).toString))

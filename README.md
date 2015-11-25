@@ -20,6 +20,7 @@ Launch:
     cd ..
     chmod a+x insert.dashboard.sh
     ./insert.dashboard.sh
+    # Manually import the pre-cooked Kibana visualizations and dashboards from /kibana_dashboard/
 
     # Download and Install Kibana
     curl -O https://download.elastic.co/kibana/kibana/kibana-4.0.0-linux-x64.tar.gz
